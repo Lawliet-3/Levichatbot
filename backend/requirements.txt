@@ -1,0 +1,10 @@
+pymongo
+openai
+fastapi
+uvicorn
+chromadb
+sentence-transformers
+pandas
+pydantic
+python-multipart
+python-dotenv
