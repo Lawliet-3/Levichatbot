@@ -6,12 +6,12 @@ class Message(BaseModel):
     role: str  # "user" or "assistant"
     content: str
     timestamp: datetime = None
-    referenced_products: List[str] = []  # Store product IDs mentioned in the message
+    referenced_products: List[str] = []  
 
 class ConversationContext(BaseModel):
     current_product_id: Optional[str] = None
-    last_query_type: Optional[str] = None  # e.g., "product_info", "recommendation", "comparison"
-    product_history: List[str] = []  # List of recently discussed product IDs
+    last_query_type: Optional[str] = None  
+    product_history: List[str] = []  
     
 class ConversationMemory:
     def __init__(self, max_history: int = 10):
