@@ -317,47 +317,6 @@ class SurveyService:
             "question_analysis": answer_analysis
         }
 
-    def _create_default_survey(self) -> None:
-        """Create a default survey if none exists"""
-        if not self.surveys:
-            default_survey = Survey(
-                id="default",
-                title="Product Experience Survey",
-                description="Help us improve our products by sharing your experience",
-                questions=[
-                    Question(
-                        order=1,
-                        type=QuestionType.SCALE,
-                        text="On a scale from 1 to 5, how satisfied are you with the overall quality of the product?",
-                        scale_range=(1, 5)
-                    ),
-                    Question(
-                        order=2,
-                        type=QuestionType.MULTIPLE_CHOICE,
-                        text="How would you rate the design and fit of the product?",
-                        options=["Excellent", "Good", "Average", "Poor"]
-                    ),
-                    Question(
-                        order=3,
-                        type=QuestionType.MULTIPLE_CHOICE,
-                        text="Which of the following best describes your experience with the product?",
-                        options=["Exceeded expectations", "Met expectations", "Below expectations"]
-                    ),
-                    Question(
-                        order=4,
-                        type=QuestionType.MULTIPLE_CHOICE,
-                        text="What was the most important factor in your purchase decision?",
-                        options=["Price", "Brand Reputation", "Product Features", "Design", "Other"]
-                    ),
-                    Question(
-                        order=5,
-                        type=QuestionType.TEXT,
-                        text="Please provide any additional comments or suggestions to help us improve our products or services."
-                    )
-                ]
-            )
-            self.surveys[default_survey.id] = default_survey
-
     async def add_question(self, survey_id: str, question_data: Dict[str, Any]) -> Survey:
         """Add a question to a survey"""
         survey = self.surveys.get(survey_id)
