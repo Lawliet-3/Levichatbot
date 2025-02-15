@@ -5,6 +5,7 @@ from ..models.product import Product, ProductQuery
 from .rag_service import RAGService
 import logging
 from datetime import datetime
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -14,48 +15,147 @@ class ChatService:
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.conversation_history = []
         self.current_product = None
+
+    def analyze_query_intent(self, query: str) -> Dict[str, Any]:
+        """Analyze query intent and extract relevant context."""
+        query_lower = query.lower()
+        analysis = {
+            "intents": [],
+            "attributes": {},
+            "context_needed": []
+        }
+
+        # Product attribute patterns
+        patterns = {
+            "size": ['size', 'waist', 'length', 'fit', 'measurement', 'dimension'],
+            "color": ['color', 'shade', 'wash', 'tone', 'dark', 'light', 'medium'],
+            "price": ['price', 'cost', 'expensive', 'cheap', 'affordable', 'discount', 'sale'],
+            "style": ['style', 'design', 'cut', 'shape', 'look', 'fashion'],
+            "material": ['material', 'fabric', 'denim', 'cotton', 'stretch', 'quality'],
+            "availability": ['available', 'stock', 'store', 'buy', 'purchase', 'order'],
+            "comparison": ['compare', 'difference', 'better', 'versus', 'vs', 'or'],
+            "care": ['wash', 'care', 'maintain', 'clean', 'instruction']
+        }
+
+        # Detect intents
+        for category, keywords in patterns.items():
+            if any(keyword in query_lower for keyword in keywords):
+                analysis["intents"].append(category)
+
+        # Detect query type
+        if any(word in query_lower for word in ['show', 'find', 'search', 'looking for', 'want']):
+            analysis["query_type"] = "search"
+        elif any(word in query_lower for word in ['how to', 'what is', 'explain', 'tell me']):
+            analysis["query_type"] = "information"
+        elif any(word in query_lower for word in ['recommend', 'suggest', 'best', 'good for']):
+            analysis["query_type"] = "recommendation"
+        else:
+            analysis["query_type"] = "general"
+
+        # Extract specific attributes
+        # Product numbers (e.g., 501, 511)
+        product_numbers = re.findall(r'\b\d{3}\b', query)
+        if product_numbers:
+            analysis["attributes"]["product_numbers"] = product_numbers
+
+        # Price ranges
+        price_matches = re.findall(r'\$?\d+(?:\.\d{2})?', query)
+        if price_matches:
+            analysis["attributes"]["price_range"] = price_matches
+
+        # Specific measurements
+        measurements = re.findall(r'\b\d+(?:\.\d+)?\s*(?:inch|"|inches|cm|mm|in)\b', query_lower)
+        if measurements:
+            analysis["attributes"]["measurements"] = measurements
+
+        # Determine context needs
+        if "comparison" in analysis["intents"]:
+            analysis["context_needed"].append("product_comparison")
+        if self.current_product and any(intent in ["size", "color", "availability"] for intent in analysis["intents"]):
+            analysis["context_needed"].append("current_product")
+        if "price" in analysis["intents"]:
+            analysis["context_needed"].append("pricing_info")
+
+        # User preferences/requirements
+        preferences = {
+            "gender": ['men', 'women', 'unisex', 'boys', 'girls'],
+            "occasion": ['casual', 'formal', 'work', 'party', 'everyday'],
+            "weather": ['summer', 'winter', 'rain', 'cold', 'hot'],
+            "activity": ['work', 'sport', 'exercise', 'casual', 'hiking']
+        }
         
+        for pref_type, keywords in preferences.items():
+            found_prefs = [kw for kw in keywords if kw in query_lower]
+            if found_prefs:
+                if "preferences" not in analysis:
+                    analysis["preferences"] = {}
+                analysis["preferences"][pref_type] = found_prefs
+
+        # Sentiment analysis for subjective queries
+        sentiment_indicators = {
+            "positive": ['best', 'great', 'good', 'like', 'recommend'],
+            "negative": ['bad', 'issue', 'problem', 'don\'t like', 'wrong'],
+            "neutral": ['different', 'other', 'alternative']
+        }
+        
+        for sentiment, indicators in sentiment_indicators.items():
+            if any(indicator in query_lower for indicator in indicators):
+                analysis["sentiment"] = sentiment
+                break
+
+        return analysis
+
     def _prepare_context(self, products: List[Dict[str, Any]], query: str) -> str:
         """Prepare product information and conversation context for the LLM."""
-        context = ""
-        
-        # Add recent conversation history
-        if self.conversation_history:
-            context += "Recent conversation history:\n"
-            # Include last 3 messages for context
-            recent_messages = self.conversation_history[-3:]
-            for msg in recent_messages:
-                context += f"{msg['role'].title()}: {msg['content']}\n"
-                # If this message mentioned specific products, note them
-                if msg.get('products'):
-                    for prod in msg['products']:
-                        context += f"(Referenced product: {prod['metadata']['product_name']})\n"
-            context += "\n"
+        try:
+            context = ""
+            
+            # 1. Add conversation history (existing code)
+            if self.conversation_history:
+                context += "Recent conversation history:\n"
+                recent_messages = self.conversation_history[-3:]
+                for msg in recent_messages:
+                    context += f"{msg['role'].title()}: {msg['content']}\n"
+                    if msg.get('products'):
+                        for prod in msg['products']:
+                            context += f"(Referenced product: {prod['metadata']['product_name']})\n"
+                context += "\n"
 
-        # Add current product context if any
-        if self.current_product:
-            context += f"Currently discussing product: {self.current_product['product_name']}\n\n"
-
-        # Add query analysis
-        context += f"Current user query: {query}\n"
-        if any(size_word in query.lower() for size_word in ['size', 'waist', 'length', 'fit']):
-            context += "Note: User is asking about product sizing/availability.\n"
+            # 2. Add current product context (existing code)
             if self.current_product:
-                context += f"This question likely refers to the current product being discussed: {self.current_product['product_name']}\n"
+                context += f"Currently discussing product: {self.current_product['product_name']}\n\n"
+
+            # 3. Add new query analysis
+            query_analysis = self.analyze_query_intent(query)
+            
+            context += f"Current user query: {query}\n"
+            if query_analysis["intents"]:
+                context += f"Query intents detected: {', '.join(query_analysis['intents'])}\n"
+            
+            # Add specific context based on intents
+            if "size" in query_analysis["intents"]:
+                context += "Note: User is asking about product sizing/availability.\n"
+                if self.current_product:
+                    context += f"This question likely refers to the current product being discussed: {self.current_product['product_name']}\n"
+
+            # 4. Keep the product information section (existing code)
+            context += "\nRetrieved product information:\n\n"
+            for idx, product in enumerate(products, 1):
+                prod = product["metadata"]
+                context += f"""Product {idx}:
+    Name: {prod['product_name']}
+    Price: {prod['sale_price']}
+    Color: {prod.get('color', 'Not specified')}
+    Description: {prod['description']}
+    How it fits: {prod['how_it_fits']}
+    Composition & Care: {prod['composition_care']}\n\n"""
+
+            return context.strip()
         
-        # Add retrieved products information
-        context += "\nRetrieved product information:\n\n"
-        for idx, product in enumerate(products, 1):
-            prod = product["metadata"]
-            context += f"""Product {idx}:
-Name: {prod['product_name']}
-Price: {prod['sale_price']}
-Color: {prod.get('color', 'Not specified')}
-Description: {prod['description']}
-How it fits: {prod['how_it_fits']}
-Composition & Care: {prod['composition_care']}\n\n"""
-        
-        return context
+        except Exception as e:
+            logger.error(f"Error in context preparation: {str(e)}")
+            # Fallback to original context if something goes wrong
+            return self._prepare_context_legacy(products, query)
 
     def _generate_prompt(self, query: str, context: str) -> str:
         """Generate a prompt for the LLM."""
