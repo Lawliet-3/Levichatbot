@@ -6,8 +6,11 @@ from dotenv import load_dotenv
 import os
 import pandas as pd
 
+from fastapi import FastAPI, HTTPException
 from app.services.survey_service import SurveyService
+from typing import Dict, Any
 from app.models.survey import Survey, Question, Answer
+
 # Load environment variables from .env file
 env_path = Path(__file__).parent / '.env'
 load_dotenv(dotenv_path=env_path)
@@ -194,11 +197,7 @@ async def validate_data():
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
-from fastapi import FastAPI, HTTPException
-from app.models.survey import Survey, Question
-from app.services.survey_service import SurveyService
-from typing import Dict, Any
+    
 
 @app.post("/api/surveys/{survey_id}/questions")
 async def add_question(survey_id: str, question_data: Dict[str, Any]):

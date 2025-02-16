@@ -14,6 +14,5 @@ setup(
         "selenium",
         "webdriver-manager",
         "plotly",
-        # other dependencies...
     ],
 ) 
