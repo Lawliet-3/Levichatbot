@@ -84,7 +84,7 @@ class RAGService:
             # Prepare data for ChromaDB
             ids = [f"product_{i}" for i in range(len(products))]
             texts = [product.to_embedding_text() for product in products]
-            metadatas = [product.dict(exclude_none=True) for product in products]  # Exclude None values
+            metadatas = [product.model_dump(exclude_none=True) for product in products]  # Exclude None values
 
             # Add documents in batches
             batch_size = 100
