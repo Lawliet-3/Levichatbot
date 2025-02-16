@@ -82,22 +82,22 @@ async def startup_event():
         else:
             logger.info("OPENAI_API_KEY is configured")
 
-        # Initialize the collection with our new improvements
+        # Initialize the collection with new improvements
         logger.info("Initializing RAG collection...")
-        rag_service.initialize_collection(reset=True)  # This will use our improved embedding
+        rag_service.initialize_collection(reset=True)  # This will use improved embedding
         
         # Load and index products
         csv_path = Path("data/products.csv")
         if csv_path.exists():
             logger.info(f"Loading products from {csv_path}...")
-            # This will use our improved product loading with better text representation
+            # This will use improved product loading with better text representation
             products = rag_service.load_products(str(csv_path))
             logger.info(f"Loaded {len(products)} products")
             
             # Only index if there are products to index
             if products:
                 logger.info("Indexing products with improved search capabilities...")
-                rag_service.index_products(products)  # This will use our improved indexing
+                rag_service.index_products(products)  # This will use improved indexing
                 logger.info(f"Successfully indexed {len(products)} products")
                 
                 # Verify indexing with a test query
