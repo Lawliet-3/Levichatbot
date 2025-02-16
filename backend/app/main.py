@@ -26,8 +26,6 @@ app = FastAPI(title="Levi's Chatbot API")
 # Initialize survey service
 survey_service = SurveyService()
 
-# Add these endpoints to your FastAPI app
-
 @app.post("/api/surveys")
 async def create_survey(survey_data: dict):
     return await survey_service.create_survey(survey_data)
