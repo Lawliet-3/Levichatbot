@@ -163,6 +163,20 @@ class SurveyService:
         if not survey:
             raise HTTPException(status_code=404, detail="Survey not found")
 
+        # Convert conditions if present
+        if "conditions" in question_data:
+            conditions = []
+            for condition_data in question_data["conditions"]:
+                try:
+                    condition = Condition.from_dict(condition_data)
+                    conditions.append(condition)
+                except (ValueError, KeyError) as e:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Invalid condition format: {str(e)}"
+                    )
+            question_data["conditions"] = conditions
+
         # Set order to be last if not specified
         if 'order' not in question_data:
             question_data['order'] = len(survey.questions)
@@ -407,6 +421,20 @@ class SurveyService:
         # Find and update the question
         for question in survey.questions:
             if question.id == question_id:
+                # Convert conditions to proper Condition objects
+                if "conditions" in question_data:
+                    conditions = []
+                    for condition_data in question_data["conditions"]:
+                        try:
+                            condition = Condition.from_dict(condition_data)
+                            conditions.append(condition)
+                        except (ValueError, KeyError) as e:
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Invalid condition format: {str(e)}"
+                            )
+                    question_data["conditions"] = conditions
+
                 # Update existing question fields
                 for key, value in question_data.items():
                     if key != "id":  # Don't update the ID

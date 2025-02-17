@@ -26,12 +26,27 @@ class Condition(BaseModel):
             return False
 
         if self.operator == ConditionalOperator.EQUALS:
-            return previous_answer == self.value
+            return str(previous_answer).lower() == str(self.value).lower()
         elif self.operator == ConditionalOperator.GREATER_THAN:
-            return float(previous_answer) > float(self.value)
+            try:
+                return float(previous_answer) > float(self.value)
+            except (ValueError, TypeError):
+                return False
         elif self.operator == ConditionalOperator.LESS_THAN:
-            return float(previous_answer) < float(self.value)
+            try:
+                return float(previous_answer) < float(self.value)
+            except (ValueError, TypeError):
+                return False
         return False
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Condition':
+        """Create a Condition instance from a dictionary"""
+        return cls(
+            previous_question_id=data['question_id'],
+            operator=ConditionalOperator(data['operator']),
+            value=data['value']
+        )
 
 class Question(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -52,9 +67,16 @@ class Question(BaseModel):
         if not self.conditions:
             return True
 
+        # Convert dict conditions to Condition objects if needed
+        evaluated_conditions = []
+        for condition in self.conditions:
+            if isinstance(condition, dict):
+                condition = Condition.from_dict(condition)
+            evaluated_conditions.append(condition)
+
         return all(
             condition.evaluate(previous_answers.get(condition.previous_question_id))
-            for condition in self.conditions
+            for condition in evaluated_conditions
         )
 
 class Answer(BaseModel):
